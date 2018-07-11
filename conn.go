@@ -146,7 +146,7 @@ func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		c.driver.debugf("begin readonly transaction; using reader")
 		r, err := c.reader(ctx)
 		if err == nil {
-			if err := c.beginTx(ctx, r, opts); err != nil {
+			if err := c.beginTx(ctx, r, opts); err == nil {
 				// transacting on the reader
 				return c.tx, nil
 			}
