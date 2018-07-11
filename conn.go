@@ -26,6 +26,9 @@ func (e ConnCloseError) Error() string {
 // ErrConnBeginTxUnsupported is provided when conn.BeginTx() is used but not supported by the underlying driver
 var ErrConnBeginTxUnsupported = errors.New("rwproxy: driver doesn't support BeginTx")
 
+// ErrUnexpectedTxClose is provided when a closed proxied transaction is not currently expected by the connection
+var ErrUnexpectedTxClose = errors.New("rwproxy: unexpected proxied transaction close")
+
 // conn is a virtual conneciton to a read/write cluster of connections
 type conn struct {
 	driver *Driver
@@ -130,7 +133,7 @@ func (c *conn) Begin() (driver.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.tx = &tx{conn: c, driverConn: w, proxiedTx: wtx, closeCh: c.waitCloseTx()}
+	c.tx = &tx{conn: c, driverConn: w, proxiedTx: wtx}
 	return c.tx, nil
 }
 
@@ -178,19 +181,19 @@ func (c *conn) beginTx(ctx context.Context, pc *proxiedConn, opts driver.TxOptio
 			return err
 		}
 		// no errors, use the reader transaction
-		c.tx = &tx{conn: c, driverConn: pc, proxiedTx: dtx, closeCh: c.waitCloseTx()}
+		c.tx = &tx{conn: c, driverConn: pc, proxiedTx: dtx}
 		return nil
 	}
 	return ErrConnBeginTxUnsupported
 }
 
-func (c *conn) waitCloseTx() chan<- struct{} {
-	close := make(chan struct{}, 1)
-	go func() {
-		<-close
+func (c *conn) closeTx(closed *tx) error {
+	if c.tx == closed {
 		c.tx = nil
-	}()
-	return close
+		return nil
+	}
+	c.driver.debugf("closed tx mismatch: expected %v; got %v", c.tx, closed)
+	return ErrUnexpectedTxClose
 }
 
 // PrepareContext returns a lazily prepared statement, not yet bound to an underlying connection

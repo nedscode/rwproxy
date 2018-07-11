@@ -8,22 +8,28 @@ type tx struct {
 	conn       *conn
 	driverConn *proxiedConn
 	proxiedTx  driver.Tx
-	closeCh    chan<- struct{}
 }
 
 func (t *tx) Commit() error {
-	t.close()
-	return t.proxiedTx.Commit()
+	commitErr := t.proxiedTx.Commit()
+	closeErr := t.close()
+
+	if commitErr != nil {
+		return commitErr
+	}
+	return closeErr
 }
 
 func (t *tx) Rollback() error {
-	t.close()
-	return t.proxiedTx.Rollback()
+	rbErr := t.proxiedTx.Rollback()
+	closeErr := t.close()
+
+	if rbErr != nil {
+		return rbErr
+	}
+	return closeErr
 }
 
-func (t *tx) close() {
-	select {
-	case t.closeCh <- struct{}{}:
-	default:
-	}
+func (t *tx) close() error {
+	return t.conn.closeTx(t)
 }
