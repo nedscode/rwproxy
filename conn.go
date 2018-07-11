@@ -87,7 +87,8 @@ func (c *conn) reader(ctx context.Context) (*proxiedConn, error) {
 
 // Prepare returns a lazily prepared statement, not yet bound to an underlying connection
 func (c *conn) Prepare(query string) (driver.Stmt, error) {
-	return &stmt{conn: c, query: query}, nil
+	c.driver.debugf("preparing: %s", query)
+	return newStmt(c, query), nil
 }
 
 // Close closes the underlying reader and writer connections
@@ -201,7 +202,8 @@ func (c *conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	default:
 	}
 
-	return &stmt{conn: c, query: query}, nil
+	c.driver.debugf("preparing: %s", query)
+	return newStmt(c, query), nil
 }
 
 // Exec attempts to fast-path conn.Exec() against the writer
