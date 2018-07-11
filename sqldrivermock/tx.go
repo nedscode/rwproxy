@@ -1,13 +1,22 @@
 package sqldrivermock
 
 type tx struct {
-	conn *conn
+	conn   *conn
+	expect *ExpectedTx
 }
 
 func (t *tx) Commit() error {
-	return nil
+	ex, err := t.expect.commit(&ExpectedCommit{})
+	if err != nil {
+		return err
+	}
+	return ex.err
 }
 
 func (t *tx) Rollback() error {
-	return nil
+	ex, err := t.expect.rollback(&ExpectedRollback{})
+	if err != nil {
+		return err
+	}
+	return ex.err
 }
